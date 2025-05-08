@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         Amazon keywords Positioning by Asin
 // @namespace    http://tampermonkey.net/
-// @version      1.0.0
+// @version      1.1.0
 // @description  1.在亚马逊搜索结果页上定位ASIN, 获取排名. 支持多ASIN管理和搜索进度提示
 // @author       You
 // @match        https://www.amazon.com/*
@@ -16,9 +16,23 @@
 (function () {
     'use strict';
 
+    // globe attr
     const SEARCH_KEY = 'tm_searchAsins';
     const SAVED_KEY = 'tm_savedAsins';
+    const MAX_PAGES = 2; // 最大翻页次数
 
+    // 初始化搜索
+    let currentPage = 1;
+    let targetASIN = '';
+    let foundResults = {
+        natural: null,
+        sponsored: null //广告位置
+    };
+    // 页面加载完成后执行
+    window.onload = () => {
+        initUI();
+        loadSavedAsins();
+    };
     // 载入已经保存的ASIN
     function loadSavedAsins() {
         const list = localStorage.getItem(SAVED_KEY);
@@ -68,17 +82,14 @@
         statusDiv.textContent = `搜索ASIN: ${asin} ...`;
         if (findAndHighlight(asin)) {
             statusDiv.textContent = `已定位到ASIN ${asin}`;
-            // 添加跳转按钮
-            const jumpBtn = document.createElement('button');
-            jumpBtn.textContent = '跳转到该ASIN';
-            jumpBtn.className = 'tm-btn';
-            jumpBtn.addEventListener('click', () => {
-                const elem = document.querySelector(`[data-asin="${asin}"]`);
-                if (elem) elem.scrollIntoView({ behavior: 'smooth', block: 'center' });
-            });
-
-            statusDiv.appendChild(jumpBtn);
+            // 重置
+            foundResults = {
+                natural: null,
+                sponsored: null
+            };
+            currentPage = 1;
             localStorage.removeItem(SEARCH_KEY);
+            searchPage()
         } else {
             // 当前页未找到，尝试翻页
             const nextBtn = document.querySelector('.s-pagination-next');
@@ -92,6 +103,77 @@
             }
         }
     }
+
+    function searchPage() {
+        // div[data-asin]是搜索结果asin框 获取当前页所有产品节点
+        const products = document.querySelectorAll('div[data-asin]');
+
+        // 初始化计数器
+        let naturalIndex = 0, sponsoredIndex = 0;
+
+        for (const product of products) {
+            // 取得Asin值
+            const asin = div.getAttribute('data-asin');
+            if (!asin) continue;
+
+            // 一次性查询节点，减少多次 DOM 查询
+            const isSponsored = product.querySelector('.s-sponsored-label') !== null;
+            const hasAddToCart = product.querySelector('span.a-button-inner button.a-button-text') !== null;
+            if (!hasAddToCart) continue;
+
+            // 累加自然位和广告位的计数
+            if (isSponsored) {
+                sponsoredIndex++;
+            } else {
+                naturalIndex++;
+            }
+
+            // 如果找到目标 ASIN，记录位置信息
+            if (asin === targetASIN) {
+                if (isSponsored && !foundResults.sponsored) {
+                    foundResults.sponsored = { page: currentPage, position: sponsoredIndex };
+                } else if (!isSponsored && !foundResults.natural) {
+                    foundResults.natural = { page: currentPage, position: naturalIndex };
+                }
+
+                // 如果都找到了，直接结束遍历，提升效率
+                if (foundResults.sponsored && foundResults.natural) break;
+            }
+        }
+
+        // 判断是否需要进入下一页 ?是不是不需要翻页了
+        if (foundResults.natural && foundResults.sponsored) {
+            showResults();
+        } else if (currentPage < MAX_PAGES) {
+            const nextPage = document.querySelector('a.s-pagination-next');
+            if (nextPage) {
+                currentPage++;
+                nextPage.click();
+                setTimeout(searchPage, 3000);
+            } else {
+                showResults();
+            }
+        } else {
+            showResults();
+        }
+    }
+
+    // 结果直接显示在顶栏
+    function showResults() {
+        let message = `搜索完成：\n`;
+        if (results.natural) {
+            message += `自然位: 第 ${results.natural.page} 页，第 ${results.natural.position} 个位置\n`;
+        } else {
+            message += `自然位: 未找到\n`;
+        }
+        if (results.sponsored) {
+            message += `广告位: 第 ${results.sponsored.page} 页，第 ${results.sponsored.position} 个位置\n`;
+        } else {
+            message += `广告位: 未找到\n`;
+        }
+        alert(message);
+    }
+
     // 停止搜索
     function stopSearch() {
         localStorage.removeItem(SEARCH_KEY);
@@ -153,14 +235,17 @@
     container.appendChild(searchInput);
 
     const locateBtn = document.createElement('button');
-    locateBtn.textContent = '定位';
+    locateBtn.textContent = '定位&跳转';
     locateBtn.className = 'tm-btn';
     locateBtn.style.marginRight = '5px';
     locateBtn.addEventListener('click', () => {
         const asin = searchInput.value.trim();
-        if (!asin) return;
-        localStorage.setItem(SEARCH_KEY, asin);
-        searchAsin(asin);
+        targetASIN = asin
+        if (!targetASIN) {
+            return alert('请输入有效的ASIN！');
+        }
+        localStorage.setItem(SEARCH_KEY, targetASIN);
+        searchAsin(targetASIN);
     });
     container.appendChild(locateBtn);
 
