@@ -29,11 +29,16 @@
     let isFound = false
     // 工具函数：从分页条里读取当前页码
     function getCurrentPageNumber() {
+        const url = new URL(window.location.href);
+        const p = parseInt(url.searchParams.get('page'), 10);
+        if (!isNaN(p)) return p;
+        // 如果 URL 没 page 参数，再退回去读 DOM
         const sel = document.querySelector('.s-pagination-item.s-pagination-selected');
-        // 如果还没渲染好，就先不读
-        if (!sel) return null;
-        const num = parseInt(sel.textContent.trim(), 10);
-        return isNaN(num) ? null : num;
+        if (sel) {
+            const n = parseInt(sel.textContent.trim(), 10);
+            if (!isNaN(n)) return n;
+        }
+        return 1;
     }
     // 监听
     function initPageObserver(asin) {
@@ -42,7 +47,7 @@
             if (findAndHighlight(asin)) {
                 observer.disconnect();
                 isFound = true;
-                statusDiv.textContent = `11111✅已定位到ASIN-${asin} 第${foundResults.natural.page}页 排名${foundResults.natural.position}`;
+                statusDiv.textContent = `✅已定位到ASIN-${asin} 第${foundResults.natural.page}页 排名${foundResults.natural.position}`;
             }
         });
         // MutationObserver 实例-监听页面 DOM 的增删改
@@ -57,7 +62,7 @@
         if (pageNum === null) {
             // 分页条还没加载完成，返回 false，让 observer 等下一次 DOM 变化再 kall
             return false;
-          }
+        }
         if (elem) {
             // 高亮显示并滚动到视图
             elem.style.border = '2px solid red';
@@ -70,10 +75,10 @@
             }
             if (foundResults.natural) {
                 foundResults.natural.page = pageNum;  // 🔄 修正页数
-                statusDiv.textContent = `222222✅ 已定位到 ASIN-${asin} | 第 ${foundResults.natural.page} 页, 排名 ${foundResults.natural.position}`;
+                statusDiv.textContent = `✅ 已定位到 ASIN-${asin} | 第 ${foundResults.natural.page} 页, 排名 ${foundResults.natural.position}`;
             } else if (foundResults.sponsored) {
                 foundResults.sponsored.page = pageNum; // 🔄 修正页数
-                statusDiv.textContent = `222222✅ 已定位到 ASIN-${asin} (广告位) | 第 ${foundResults.sponsored.page} 页, 排名 ${foundResults.sponsored.position}`;
+                statusDiv.textContent = `✅ 已定位到 ASIN-${asin} (广告位) | 第 ${foundResults.sponsored.page} 页, 排名 ${foundResults.sponsored.position}`;
             }
             isFound = true;
             return true;
