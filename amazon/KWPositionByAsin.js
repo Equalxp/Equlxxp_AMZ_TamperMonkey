@@ -17,8 +17,6 @@
     'use strict';
 
     // globe attr
-    const SEARCH_KEY = 'tm_searchAsins';
-    const SAVED_KEY = 'tm_savedAsins';
     const MAX_PAGES = 2; // 最大翻页次数
 
     // 初始化搜索
@@ -30,42 +28,6 @@
     };
     // 是否找到目标ASIN
     let isFound = false
-    // 页面加载完成后执行
-    window.onload = () => {
-        loadSavedAsins();
-    };
-    // 载入已经保存的ASIN
-    function loadSavedAsins() {
-        const list = localStorage.getItem(SAVED_KEY);
-        return list ? JSON.parse(list) : [];
-    }
-    // 保存已保存 ASIN 列表
-    function saveSavedAsins(list) {
-        localStorage.setItem(SAVED_KEY, JSON.stringify(list));
-    }
-    // 更新已保存 ASIN 列表的 UI 显示
-    function updateSavedListUI() {
-        savedListDiv.innerHTML = '';
-        loadSavedAsins().forEach(asin => {
-            const item = document.createElement('div');
-            item.className = 'tm-saved-item';
-            item.textContent = asin;
-
-            const delBtn = document.createElement('button');
-            delBtn.textContent = '删除';
-            delBtn.className = 'tm-btn';
-
-            delBtn.addEventListener('click', () => {
-                // 过滤删除
-                const newList = loadSavedAsins().filter(a => a !== asin);
-                saveSavedAsins(newList);
-                updateSavedListUI();
-            });
-            item.appendChild(delBtn);
-            savedListDiv.appendChild(item);
-        });
-    }
-
     // 监听
     function initPageObserver(asin) {
         // MutationObserver实例变化时（翻页）调用其回调函数
@@ -74,7 +36,6 @@
                 observer.disconnect();
                 isFound = true;
                 statusDiv.textContent = `✅已定位到ASIN-${asin} 第${foundResults.natural.page}页 排名${foundResults.natural.position}`;
-                localStorage.removeItem('SEARCH_KEY');
             }
         });
         // MutationObserver 实例-监听页面 DOM 的增删改
@@ -110,20 +71,15 @@
             if (nextBtn && !nextBtn.classList.contains('s-pagination-disabled')) {
                 statusDiv.textContent = '未在当前页找到, 正在翻页...';
 
-                // 存储状态
-                localStorage.setItem('SEARCH_KEY', asin);
-
                 // 执行点击并监听变化
                 nextBtn.click();
                 currentPage++
             } else {
                 statusDiv.textContent = '❌ 未找到目标 ASIN';
-                localStorage.removeItem('SEARCH_KEY');
             }
         } else {
             // 如果已经找到，立即显示状态
             statusDiv.textContent = `✅ 已定位到 ASIN ${asin}`;
-            localStorage.removeItem('SEARCH_KEY');
         }
     }
 
@@ -165,7 +121,6 @@
 
     // 停止搜索
     function stopSearch() {
-        localStorage.removeItem(SEARCH_KEY);
         statusDiv.textContent = '搜索已停止';
     }
     // 构建 UI 容器
@@ -201,38 +156,6 @@
         });
     });
 
-    // 已保存 ASIN 列表区域
-    const savedListDiv = document.createElement('div');
-    savedListDiv.id = 'tm-saved-list';
-    savedListDiv.style.display = 'flex';
-    savedListDiv.style.flexWrap = 'wrap';
-    savedListDiv.style.marginRight = '15px';
-    container.appendChild(savedListDiv);
-
-    // 添加ASIN控件
-    const addInput = document.createElement('input');
-    addInput.type = 'text';
-    addInput.placeholder = '新增 ASIN';
-    addInput.style.marginRight = '5px';
-    container.appendChild(addInput);
-
-    const addBtn = document.createElement('button');
-    addBtn.textContent = '添加';
-    addBtn.className = 'tm-btn';
-    addBtn.style.marginRight = '15px';
-    addBtn.addEventListener('click', () => {
-        const asin = addInput.value.trim();
-        if (!asin) return;
-        let list = loadSavedAsins();
-        if (!list.includes(asin)) {
-            list.push(asin);
-            saveSavedAsins(list);
-            updateSavedListUI();
-        }
-        addInput.value = '';
-    });
-    container.appendChild(addBtn);
-
     // 搜索ASIN控件
     const searchInput = document.createElement('input');
     searchInput.type = 'text';
@@ -250,7 +173,6 @@
         if (!targetASIN) {
             return alert('请输入有效的ASIN！');
         }
-        localStorage.setItem(SEARCH_KEY, targetASIN);
         currentPage = 1;
         foundResults = {
             natural: null,
@@ -293,17 +215,6 @@
             border: 1px solid #ccc;
             border-radius: 3px;
         }
-        #tm-saved-list .tm-saved-item {
-            display: flex;
-            align-items: center;
-            margin-right: 8px;
-            padding: 2px 4px;
-            border: 1px dashed #ccc;
-            border-radius: 3px;
-        }
-        #tm-saved-list .tm-saved-item button {
-            margin-left: 4px;
-        }
         #tm-status button {
             margin-left: 5px;
         }
@@ -311,10 +222,4 @@
     document.head.appendChild(style);
 
     updateSavedListUI();
-    // 继续上次的搜索（如果存在）
-    const pending = localStorage.getItem(SEARCH_KEY);
-    if (pending) {
-        searchInput.value = pending;
-        searchAsin(pending);
-    }
 })();
