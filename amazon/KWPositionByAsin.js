@@ -28,6 +28,8 @@
         natural: null,
         sponsored: null //广告位置
     };
+    // 是否找到目标ASIN
+    let isFound = false
     // 页面加载完成后执行
     window.onload = () => {
         loadSavedAsins();
