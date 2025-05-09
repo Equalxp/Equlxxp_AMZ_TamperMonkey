@@ -20,7 +20,6 @@
     const MAX_PAGES = 2; // 最大翻页次数
 
     // 初始化搜索
-    let currentPage = 1;
     let targetASIN = '';
     let foundResults = {
         natural: null,
@@ -28,6 +27,14 @@
     };
     // 是否找到目标ASIN
     let isFound = false
+    // 工具函数：从分页条里读取当前页码
+    function getCurrentPageNumber() {
+        const sel = document.querySelector('.s-pagination-item.s-pagination-selected');
+        // 如果还没渲染好，就先不读
+        if (!sel) return null;
+        const num = parseInt(sel.textContent.trim(), 10);
+        return isNaN(num) ? null : num;
+    }
     // 监听
     function initPageObserver(asin) {
         // MutationObserver实例变化时（翻页）调用其回调函数
@@ -35,7 +42,7 @@
             if (findAndHighlight(asin)) {
                 observer.disconnect();
                 isFound = true;
-                statusDiv.textContent = `✅已定位到ASIN-${asin} 第${foundResults.natural.page}页 排名${foundResults.natural.position}`;
+                statusDiv.textContent = `11111✅已定位到ASIN-${asin} 第${foundResults.natural.page}页 排名${foundResults.natural.position}`;
             }
         });
         // MutationObserver 实例-监听页面 DOM 的增删改
@@ -45,15 +52,30 @@
     function findAndHighlight(asin) {
         const elem = document.querySelector(`[data-asin="${asin}"]`);
         searchPageAndRank()
+        if (!elem) return false;
+        const pageNum = getCurrentPageNumber() || '？';
+        if (pageNum === null) {
+            // 分页条还没加载完成，返回 false，让 observer 等下一次 DOM 变化再 kall
+            return false;
+          }
         if (elem) {
             // 高亮显示并滚动到视图
             elem.style.border = '2px solid red';
             elem.style.padding = '5px';
             elem.scrollIntoView({ behavior: 'smooth', block: 'center' });
 
-            // 状态栏立即更新
-            statusDiv.textContent = `✅已定位到ASIN-${asin} 第${foundResults.natural.page}页 排名${foundResults.natural.position}`;
-            // 1.输出其页数和排名
+            //是在findAndHighlight函数中进行查找---及时更新
+            if (!foundResults.natural && elem) {
+                foundResults.natural = { page: pageNum, position: 1 };  // 假设是第一个自然位
+            }
+            if (foundResults.natural) {
+                foundResults.natural.page = pageNum;  // 🔄 修正页数
+                statusDiv.textContent = `222222✅ 已定位到 ASIN-${asin} | 第 ${foundResults.natural.page} 页, 排名 ${foundResults.natural.position}`;
+            } else if (foundResults.sponsored) {
+                foundResults.sponsored.page = pageNum; // 🔄 修正页数
+                statusDiv.textContent = `222222✅ 已定位到 ASIN-${asin} (广告位) | 第 ${foundResults.sponsored.page} 页, 排名 ${foundResults.sponsored.position}`;
+            }
+            isFound = true;
             return true;
         }
         return false;
@@ -69,17 +91,13 @@
         if (!findAndHighlight(asin)) {
             const nextBtn = document.querySelector('.s-pagination-next');
             if (nextBtn && !nextBtn.classList.contains('s-pagination-disabled')) {
-                statusDiv.textContent = '未在当前页找到, 正在翻页...';
-
-                // 执行点击并监听变化
-                nextBtn.click();
-                currentPage++
+                if (!foundResults.natural && !foundResults.sponsored) {
+                    statusDiv.textContent = `未在当前页找到, 正在翻页.`;
+                    nextBtn.click();
+                }
             } else {
                 statusDiv.textContent = '❌ 未找到目标 ASIN';
             }
-        } else {
-            // 如果已经找到，立即显示状态
-            statusDiv.textContent = `✅ 已定位到 ASIN ${asin}`;
         }
     }
 
@@ -104,13 +122,13 @@
             } else {
                 naturalIndex++;
             }
-
+            const pageNum = getCurrentPageNumber() || '？';
             // 如果找到目标 ASIN，记录位置信息
             if (asin === targetASIN) {
                 if (isSponsored && !foundResults.sponsored) {
-                    foundResults.sponsored = { page: currentPage, position: sponsoredIndex };
+                    foundResults.sponsored = { page: pageNum, position: sponsoredIndex };
                 } else if (!isSponsored && !foundResults.natural) {
-                    foundResults.natural = { page: currentPage, position: naturalIndex };
+                    foundResults.natural = { page: pageNum, position: naturalIndex };
                 }
 
                 // 如果都找到了，直接结束遍历，提升效率
@@ -173,7 +191,6 @@
         if (!targetASIN) {
             return alert('请输入有效的ASIN！');
         }
-        currentPage = 1;
         foundResults = {
             natural: null,
             sponsored: null
@@ -220,6 +237,4 @@
         }
     `;
     document.head.appendChild(style);
-
-    updateSavedListUI();
 })();
