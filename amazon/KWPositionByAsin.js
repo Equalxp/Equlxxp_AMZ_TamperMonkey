@@ -65,7 +65,7 @@
             savedListDiv.appendChild(item);
         });
     }
-    
+
     // 监听
     function initPageObserver(asin) {
         // MutationObserver实例变化时（翻页）调用其回调函数
@@ -89,9 +89,9 @@
             elem.style.border = '2px solid red';
             elem.style.padding = '5px';
             elem.scrollIntoView({ behavior: 'smooth', block: 'center' });
-    
+
             // 状态栏立即更新
-            statusDiv.textContent = `✅ 已定位到 ASIN ${asin}`;
+            statusDiv.textContent = `✅已定位到ASIN-${asin} 第${foundResults.natural.page}页 排名${foundResults.natural.position}`;
             // 1.输出其页数和排名
             return true;
         }
@@ -103,16 +103,16 @@
         isFound = false;
         // 启动观察器 —— 第一次调用findAndHighlight在new MutationObserver中调用
         initPageObserver(asin);
-    
+
         // 第一页没找到-翻页
         if (!findAndHighlight(asin)) {
             const nextBtn = document.querySelector('.s-pagination-next');
             if (nextBtn && !nextBtn.classList.contains('s-pagination-disabled')) {
                 statusDiv.textContent = '未在当前页找到, 正在翻页...';
-    
+
                 // 存储状态
                 localStorage.setItem('SEARCH_KEY', asin);
-    
+
                 // 执行点击并监听变化
                 nextBtn.click();
                 currentPage++
@@ -172,7 +172,8 @@
     const container = document.createElement('div');
     container.id = 'tm-asin-container';
     container.style.position = 'fixed';
-    container.style.top = '60px';
+    container.style.top = '98px';
+    container.style.transition = 'top 0.4s ease'; /* 动画过渡 */
     container.style.left = '0';
     container.style.width = '100%';
     container.style.backgroundColor = '#fff';
@@ -183,6 +184,22 @@
     container.style.alignItems = 'center';
     container.style.padding = '5px 10px';
     container.style.fontFamily = 'Arial, sans-serif';
+
+    let lastScrollY = window.scrollY;
+    let isScrolling;
+    window.addEventListener("scroll", () => {
+        // 清除之前的计时器，避免频繁触发
+        window.cancelAnimationFrame(isScrolling);
+
+        // 用 requestAnimationFrame 优化性能
+        isScrolling = window.requestAnimationFrame(() => {
+            const currentScrollY = window.scrollY;
+            const isScrollingDown = currentScrollY > lastScrollY;
+
+            container.style.top = isScrollingDown ? "0px" : "55px";
+            lastScrollY = currentScrollY;
+        });
+    });
 
     // 已保存 ASIN 列表区域
     const savedListDiv = document.createElement('div');
