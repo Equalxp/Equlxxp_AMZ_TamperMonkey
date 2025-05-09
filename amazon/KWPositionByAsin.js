@@ -30,7 +30,6 @@
     };
     // 页面加载完成后执行
     window.onload = () => {
-        initUI();
         loadSavedAsins();
     };
     // 载入已经保存的ASIN
@@ -64,43 +63,58 @@
             savedListDiv.appendChild(item);
         });
     }
-    // 查找并高亮 ASIN 元素
+    
+    function initPageObserver(asin) {
+        const observer = new MutationObserver(() => {
+            if (findAndHighlight(asin)) {
+                observer.disconnect();
+                isFound = true;
+                statusDiv.textContent = `✅ 已定位到 ASIN ${asin}`;
+                localStorage.removeItem('SEARCH_KEY');
+            }
+        });
+    
+        observer.observe(document.body, { childList: true, subtree: true });
+    }
+    // 查找&高亮
     function findAndHighlight(asin) {
-        // 获取asin结果框
-        const elem = document.querySelector(`[data-asin="${asin}"]`)
+        const elem = document.querySelector(`[data-asin="${asin}"]`);
         if (elem) {
-            elem.style.border = "2px solid red"
+            // 🔹 高亮显示并滚动到视图
+            elem.style.border = '2px solid red';
             elem.style.padding = '5px';
-            // scrollIntoView滚动至elem元素
             elem.scrollIntoView({ behavior: 'smooth', block: 'center' });
+    
+            // 🔹 状态栏立即更新
+            statusDiv.textContent = `✅ 已定位到 ASIN ${asin}`;
             return true;
         }
-        return false
+        return false;
     }
-    // 执行搜索：找不到时自动翻页
+    // 搜索ASIN
     function searchAsin(asin) {
-        statusDiv.textContent = `搜索ASIN: ${asin} ...`;
-        if (findAndHighlight(asin)) {
-            statusDiv.textContent = `已定位到ASIN ${asin}`;
-            // 重置
-            foundResults = {
-                natural: null,
-                sponsored: null
-            };
-            currentPage = 1;
-            localStorage.removeItem(SEARCH_KEY);
-            searchPage()
-        } else {
-            // 当前页未找到，尝试翻页
+        statusDiv.textContent = `🔎 正在搜索 ASIN: ${asin} ...`;
+        isFound = false;
+        initPageObserver(asin);
+    
+        if (!findAndHighlight(asin)) {
             const nextBtn = document.querySelector('.s-pagination-next');
             if (nextBtn && !nextBtn.classList.contains('s-pagination-disabled')) {
-                statusDiv.textContent = '未在当前页找到, 翻页中...';
+                statusDiv.textContent = '未在当前页找到, 正在翻页...';
+    
+                // 存储状态
+                localStorage.setItem('SEARCH_KEY', asin);
+    
+                // 执行点击并监听变化
                 nextBtn.click();
-                // 翻页后，脚本会重新运行并继续搜索
             } else {
-                statusDiv.textContent = '未找到目标ASIN';
-                localStorage.removeItem(SEARCH_KEY);
+                statusDiv.textContent = '❌ 未找到目标 ASIN';
+                localStorage.removeItem('SEARCH_KEY');
             }
+        } else {
+            // 如果已经找到，立即显示状态
+            statusDiv.textContent = `✅ 已定位到 ASIN ${asin}`;
+            localStorage.removeItem('SEARCH_KEY');
         }
     }
 
