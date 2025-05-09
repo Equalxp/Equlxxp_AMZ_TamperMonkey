@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         Amazon keywords Positioning by Asin
 // @namespace    http://tampermonkey.net/
-// @version      1.2.0
+// @version      1.2.1
 // @description  1.在亚马逊搜索结果页上定位ASIN, 获取排名. 支持多ASIN管理和搜索进度提示
 // @author       You
 // @match        https://www.amazon.com/*
