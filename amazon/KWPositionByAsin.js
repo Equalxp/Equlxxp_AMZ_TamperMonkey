@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         Amazon keywords Positioning by Asin
 // @namespace    http://tampermonkey.net/
-// @version      1.1.0
+// @version      1.2.0
 // @description  1.在亚马逊搜索结果页上定位ASIN, 获取排名. 支持多ASIN管理和搜索进度提示
 // @author       You
 // @match        https://www.amazon.com/*
@@ -66,29 +66,33 @@
         });
     }
     
+    // 监听
     function initPageObserver(asin) {
+        // MutationObserver实例变化时（翻页）调用其回调函数
         const observer = new MutationObserver(() => {
             if (findAndHighlight(asin)) {
                 observer.disconnect();
                 isFound = true;
-                statusDiv.textContent = `✅ 已定位到 ASIN ${asin}`;
+                statusDiv.textContent = `✅已定位到ASIN-${asin} 第${foundResults.natural.page}页 排名${foundResults.natural.position}`;
                 localStorage.removeItem('SEARCH_KEY');
             }
         });
-    
+        // MutationObserver 实例-监听页面 DOM 的增删改
         observer.observe(document.body, { childList: true, subtree: true });
     }
     // 查找&高亮
     function findAndHighlight(asin) {
         const elem = document.querySelector(`[data-asin="${asin}"]`);
+        searchPageAndRank()
         if (elem) {
-            // 🔹 高亮显示并滚动到视图
+            // 高亮显示并滚动到视图
             elem.style.border = '2px solid red';
             elem.style.padding = '5px';
             elem.scrollIntoView({ behavior: 'smooth', block: 'center' });
     
-            // 🔹 状态栏立即更新
+            // 状态栏立即更新
             statusDiv.textContent = `✅ 已定位到 ASIN ${asin}`;
+            // 1.输出其页数和排名
             return true;
         }
         return false;
@@ -97,8 +101,10 @@
     function searchAsin(asin) {
         statusDiv.textContent = `🔎 正在搜索 ASIN: ${asin} ...`;
         isFound = false;
+        // 启动观察器 —— 第一次调用findAndHighlight在new MutationObserver中调用
         initPageObserver(asin);
     
+        // 第一页没找到-翻页
         if (!findAndHighlight(asin)) {
             const nextBtn = document.querySelector('.s-pagination-next');
             if (nextBtn && !nextBtn.classList.contains('s-pagination-disabled')) {
@@ -109,6 +115,7 @@
     
                 // 执行点击并监听变化
                 nextBtn.click();
+                currentPage++
             } else {
                 statusDiv.textContent = '❌ 未找到目标 ASIN';
                 localStorage.removeItem('SEARCH_KEY');
@@ -120,16 +127,14 @@
         }
     }
 
-    function searchPage() {
+    // 搜索排名和位置
+    function searchPageAndRank() {
         // div[data-asin]是搜索结果asin框 获取当前页所有产品节点
         const products = document.querySelectorAll('div[data-asin]');
-
-        // 初始化计数器
         let naturalIndex = 0, sponsoredIndex = 0;
-
         for (const product of products) {
             // 取得Asin值
-            const asin = div.getAttribute('data-asin');
+            const asin = product.getAttribute('data-asin');
             if (!asin) continue;
 
             // 一次性查询节点，减少多次 DOM 查询
@@ -156,38 +161,6 @@
                 if (foundResults.sponsored && foundResults.natural) break;
             }
         }
-
-        // 判断是否需要进入下一页 ?是不是不需要翻页了
-        if (foundResults.natural && foundResults.sponsored) {
-            showResults();
-        } else if (currentPage < MAX_PAGES) {
-            const nextPage = document.querySelector('a.s-pagination-next');
-            if (nextPage) {
-                currentPage++;
-                nextPage.click();
-                setTimeout(searchPage, 3000);
-            } else {
-                showResults();
-            }
-        } else {
-            showResults();
-        }
-    }
-
-    // 结果直接显示在顶栏
-    function showResults() {
-        let message = `搜索完成：\n`;
-        if (results.natural) {
-            message += `自然位: 第 ${results.natural.page} 页，第 ${results.natural.position} 个位置\n`;
-        } else {
-            message += `自然位: 未找到\n`;
-        }
-        if (results.sponsored) {
-            message += `广告位: 第 ${results.sponsored.page} 页，第 ${results.sponsored.position} 个位置\n`;
-        } else {
-            message += `广告位: 未找到\n`;
-        }
-        alert(message);
     }
 
     // 停止搜索
@@ -261,6 +234,11 @@
             return alert('请输入有效的ASIN！');
         }
         localStorage.setItem(SEARCH_KEY, targetASIN);
+        currentPage = 1;
+        foundResults = {
+            natural: null,
+            sponsored: null
+        };
         searchAsin(targetASIN);
     });
     container.appendChild(locateBtn);
